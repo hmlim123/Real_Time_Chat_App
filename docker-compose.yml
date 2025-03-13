@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   redis:
@@ -6,14 +6,13 @@ services:
     container_name: redis-server
     ports:
       - "6379:6379"
-    restart: always
 
   app:
     build: .
     container_name: node-app
     ports:
-      - "5000:5000"
+      - "5001:5001"  # ✅ Ensures WebSockets & HTTP work
     depends_on:
       - redis
     environment:
-      - REDIS_URL=redis://redis:6379
+      - PORT=5001

@@ -3,30 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real-Time Chat</title>
-    <script src="/socket.io/socket.io.js"></script>
+    <title>WebSocket Chat</title>
+    <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
 </head>
 <body>
-    <h1>Chat Room</h1>
-    <ul id="messages"></ul>
+    <h1>Real-Time Chat</h1>
     <input id="messageInput" placeholder="Type a message..." />
     <button onclick="sendMessage()">Send</button>
+    <ul id="messages"></ul>
 
     <script>
-        const socket = io();
-        const input = document.getElementById('messageInput');
-        const messages = document.getElementById('messages');
+        const socket = io("http://localhost:5001"); // Make sure the port is correct
 
-        socket.on('message', (msg) => {
-            const li = document.createElement('li');
+        socket.on("connect", () => {
+            console.log("✅ Connected to server:", socket.id);
+        });
+
+        socket.on("message", (msg) => {
+            console.log("📩 New message:", msg);
+            const li = document.createElement("li");
             li.textContent = msg;
-            messages.appendChild(li);
+            document.getElementById("messages").appendChild(li);
         });
 
         function sendMessage() {
-            const msg = input.value;
-            socket.emit('message', msg);
-            input.value = '';
+            const message = document.getElementById("messageInput").value;
+            socket.emit("message", message);
         }
     </script>
 </body>
