@@ -2,11 +2,11 @@ const redis = require('redis');
 require('dotenv').config();
 
 const redisClient = redis.createClient({
-    url: process.env.REDIS_URL || 'redis://localhost:6379'
+    url: process.env.REDIS_URL || 'redis://localhost:6379'  // Dockerized Redis
 });
 
 redisClient.on('connect', () => {
-    console.log('✅ Redis connected successfully');
+    console.log('✅ Connected to Redis inside Docker");
 });
 
 redisClient.on('error', (err) => {
