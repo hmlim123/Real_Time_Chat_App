@@ -16,8 +16,12 @@ const io = new Server(server, {
 });
 
 // ✅ Serve public frontend files
-const publicDirectoryPath = path.join(__dirname, "public"); // Ensure "public" is inside your project folder
+const publicDirectoryPath = path.join(__dirname, "../public");
 app.use(express.static(publicDirectoryPath));
+
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
 io.on("connection", (socket) => {
     console.log("A user connected:", socket.id);

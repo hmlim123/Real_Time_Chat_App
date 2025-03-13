@@ -27,8 +27,17 @@
         });
 
         function sendMessage() {
-            const message = document.getElementById("messageInput").value;
+            const inputField = document.getElementById("messageInput");
+            const message = inputField.value.trim(); // Trim removes extra spaces
+
+            if (message === "") {
+                console.warn("⚠️ Message is empty. Not sending.");
+                return; // Prevent sending empty messages
+            }
+
+            console.log("📤 Sending message:", message);
             socket.emit("message", message);
+            inputField.value = ""; // Clear input field after sending
         }
     </script>
 </body>
