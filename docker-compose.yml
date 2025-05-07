@@ -7,12 +7,35 @@ services:
     ports:
       - "6379:6379"
 
+  postgres:
+    image: postgres:15
+    container_name: postgres-db
+    restart: always
+    environment:
+      POSTGRES_USER: chatuser
+      POSTGRES_PASSWORD: chatpass
+      POSTGRES_DB: chatdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
   app:
     build: .
     container_name: node-app
     ports:
-      - "5001:5001"  # ✅ Ensures WebSockets & HTTP work
+      - "5001:5001"
     depends_on:
       - redis
+      - postgres
     environment:
       - PORT=5001
+      - REDIS_URL=redis://redis:6379
+      - PG_USER=chatuser
+      - PG_PASSWORD=chatpass
+      - PG_DATABASE=chatdb
+      - PG_HOST=postgres
+      - PG_PORT=5432
+
+volumes:
+  pgdata:

@@ -1,6 +1,5 @@
 const express = require('express');
-const redisClient = require('../services/redisClient');
-
+const pg = require('../services/pgClient'); // ✅ use PostgreSQL client
 const router = express.Router();
 
 router.post('/message', async (req, res) => {
@@ -10,16 +9,29 @@ router.post('/message', async (req, res) => {
         return res.status(400).json({ error: 'User and message are required' });
     }
 
-    // Store the message in Redis (simulate chat history)
-    await redisClient.lPush('chat_messages', JSON.stringify({ user, message }));
-
-    res.json({ success: true, message: 'Message stored in Redis' });
+    try {
+        await pg.query(
+            'INSERT INTO messages (username, content) VALUES ($1, $2)',
+            [user, message]
+        );
+        res.json({ success: true, message: 'Message stored in PostgreSQL' });
+    } catch (err) {
+        console.error('❌ PostgreSQL error:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
 });
 
-// Fetch latest chat messages
 router.get('/messages', async (req, res) => {
-    const messages = await redisClient.lRange('chat_messages', 0, -1);
-    res.json(messages.map(msg => JSON.parse(msg)));
+    try {
+        const result = await pg.query(
+            'SELECT * FROM messages ORDER BY created_at DESC LIMIT 50'
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error('❌ PostgreSQL error:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
 });
 
 module.exports = router;
+
