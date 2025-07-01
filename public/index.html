@@ -15,8 +15,29 @@
     <script>
         const socket = io("http://localhost:5001"); // Make sure the port is correct
 
-        socket.on("connect", () => {
+        // 1️⃣ Register user right after connection
+        socket.on("connect", async () => {
             console.log("✅ Connected to server:", socket.id);
+
+            const username = prompt("Enter your username");
+
+            try {
+                const res = await fetch("http://localhost:5001/api/user/register", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    console.log("✅ Registered user:", data.user);
+                } else {
+                    console.warn("⚠️ Registration error:", data.error);
+                }
+            } catch (err) {
+                console.error("❌ Failed to register user:", err);
+            }
         });
 
         socket.on("message", (msg) => {

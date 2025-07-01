@@ -2,19 +2,29 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
-
+const cors = require('cors');
 const port = process.env.PORT || 5001;
 const app = express();
 const server = http.createServer(app);
 const pg = require("./services/pgClient"); // ✅ PostgreSQL Pool
 
 
-// ✅ Parse incoming JSON (needed for POST bodies)
+// ✅ Middleware: Parse incoming JSON (needed for POST bodies)
 app.use(express.json());
+
+app.use(cors({
+    origin: ["http://localhost:5001", "http://0.0.0.0:5001"],
+    methods: ["GET", "POST"],
+    credentials: false,
+  }));
 
 // ✅ Register chat routes
 const chatRoutes = require('./routes/chat');
 app.use("/api/chat", chatRoutes);
+
+// ✅ User route
+const userRoutes = require('./routes/user');
+app.use("/api/user", userRoutes);
 
 const io = new Server(server, {
     cors: {
