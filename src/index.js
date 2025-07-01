@@ -6,6 +6,8 @@ const path = require("path");
 const port = process.env.PORT || 5001;
 const app = express();
 const server = http.createServer(app);
+const pg = require("./services/pgClient"); // ✅ PostgreSQL Pool
+
 
 // ✅ Parse incoming JSON (needed for POST bodies)
 app.use(express.json());
@@ -32,8 +34,9 @@ app.get("/", (req, res) => {
 io.on("connection", (socket) => {
     console.log("A user connected:", socket.id);
 
-    socket.on("message", (msg) => {
+    socket.on("message", async (msg) => {
         console.log(`Message from ${socket.id}:`, msg);
+
         io.emit("message", msg);
     });
 
