@@ -59,12 +59,17 @@ io.on("connection", (socket) => {
                 return;
             }
     
-            await pg.query(
-                "INSERT INTO messages (user_id, content) VALUES ($1, $2)",
-                [userId, message]
+            const savedMessage = await pg.query(
+            "INSERT INTO messages (user_id, content) VALUES ($1, $2) RETURNING content, created_at",
+            [userId, message]
             );
-    
-            io.emit("message", `${username}: ${message}`);
+
+            io.emit("message", {
+            username,
+            message: savedMessage.rows[0].content,
+            created_at: savedMessage.rows[0].created_at
+            });
+
         } catch (err) {
             console.error("❌ Error saving message from socket:", err);
         }
