@@ -44,10 +44,30 @@ app.get("/", (req, res) => {
 io.on("connection", (socket) => {
     console.log("A user connected:", socket.id);
 
-    socket.on("message", async (msg) => {
-        console.log(`Message from ${socket.id}:`, msg);
-
-        io.emit("message", msg);
+    socket.on("message", async (data) => {
+        const { username, message } = data;
+    
+        try {
+            const userResult = await pg.query(
+                "SELECT id FROM users WHERE username = $1",
+                [username]
+            );
+    
+            const userId = userResult.rows[0]?.id;
+            if (!userId) {
+                console.warn("Unknown username:", username);
+                return;
+            }
+    
+            await pg.query(
+                "INSERT INTO messages (user_id, content) VALUES ($1, $2)",
+                [userId, message]
+            );
+    
+            io.emit("message", `${username}: ${message}`);
+        } catch (err) {
+            console.error("❌ Error saving message from socket:", err);
+        }
     });
 
     socket.on("disconnect", () => {

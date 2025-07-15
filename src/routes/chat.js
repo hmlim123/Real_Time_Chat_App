@@ -10,10 +10,26 @@ router.post('/message', async (req, res) => {
     }
 
     try {
-        await pg.query(
-            'INSERT INTO messages (username, content) VALUES ($1, $2)',
-            [user, message]
+
+        // ✅ [ADDED] Fetch user_id from the users table based on the username
+        const userResult = await pg.query(
+            'SELECT id FROM users WHERE username = $1',
+            [user]
         );
+
+        // ✅ [ADDED] Handle case where user is not found
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const userId = userResult.rows[0].id;
+
+        // ✅ [UPDATED] Store message with user_id instead of username
+        await pg.query(
+            'INSERT INTO messages (user_id, content) VALUES ($1, $2)',
+            [userId, message]
+        );
+
         res.json({ success: true, message: 'Message stored in PostgreSQL' });
     } catch (err) {
         console.error('❌ PostgreSQL error:', err);
@@ -23,9 +39,14 @@ router.post('/message', async (req, res) => {
 
 router.get('/messages', async (req, res) => {
     try {
-        const result = await pg.query(
-            'SELECT * FROM messages ORDER BY created_at DESC LIMIT 50'
-        );
+        // ✅ [UPDATED] Join users table to retrieve username per message
+        const result = await pg.query(`
+            SELECT m.id, u.username, m.content, m.created_at
+            FROM messages m
+            JOIN users u ON m.user_id = u.id
+            ORDER BY m.created_at DESC
+            LIMIT 50
+        `);
         res.json(result.rows);
     } catch (err) {
         console.error('❌ PostgreSQL error:', err);

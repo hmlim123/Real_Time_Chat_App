@@ -1,84 +1,130 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebSocket Chat</title>
-    <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WebSocket Chat</title>
+  <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
 </head>
 <body>
-    <h1>Real-Time Chat</h1>
-    <input id="messageInput" placeholder="Type a message..." />
-    <button onclick="sendMessage()">Send</button>
-    <ul id="messages"></ul>
+  <h1>Real-Time Chat</h1>
+  <input id="messageInput" placeholder="Type a message..." />
+  <button onclick="sendMessage()">Send</button>
+  <button onclick="logout()">Logout</button>
+  <ul id="messages"></ul>
 
-    <script>
-        const socket = io("http://localhost:5001"); // Make sure the port is correct
+  <script>
+    // ✅ Escape user-generated content to prevent XSS
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
 
-        // 1️⃣ Register user right after connection
-        socket.on("connect", async () => {
-            console.log("✅ Connected to server:", socket.id);
+    // ✅ Step 1: Prompt and store username safely
+    let username = localStorage.getItem("username");
 
-            const username = prompt("Enter your username");
+    if (!username || username === "null" || username.trim() === "") {
+      username = prompt("Enter your username");
+      if (!username || username.trim() === "") {
+        alert("⚠️ Username is required to use the chat.");
+        location.reload();
+      }
+      username = username.trim();
+      localStorage.setItem("username", username);
+    }
 
-            try {
-                const res = await fetch("http://localhost:5001/api/user/register", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ username })
-                });
+    // ✅ Step 2: Register the user BEFORE socket connects
+    fetch("http://localhost:5001/api/user/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username })
+    })
+    .then((res) => res.json())
+    .then((data) => {
+      if (data.user) {
+        console.log("✅ Registered user:", data.user);
+      } else {
+        console.warn("⚠️ Registration error:", data.error);
+      }
+    })
+    .catch((err) => {
+      console.error("❌ Registration failed:", err);
+    });
 
-                const data = await res.json();
+    // ✅ Step 3: Connect socket AFTER username is valid
+    const socket = io("http://localhost:5001");
 
-                if (res.ok) {
-                    console.log("✅ Registered user:", data.user);
-                } else {
-                    console.warn("⚠️ Registration error:", data.error);
-                }
-            } catch (err) {
-                console.error("❌ Failed to register user:", err);
-            }
+    socket.on("connect", () => {
+      console.log("🟢 Connected to server as", username);
+    });
+
+    socket.on("message", (msg) => {
+      console.log("📩 New message:", msg);
+      const li = document.createElement("li");
+      const time = new Date(msg.created_at).toLocaleTimeString();
+      li.innerHTML = `<strong>${escapeHtml(msg.username)}</strong> (${time}): ${escapeHtml(msg.message || msg.content)}`;
+      document.getElementById("messages").appendChild(li);
+    });
+
+    function sendMessage() {
+      const inputField = document.getElementById("messageInput");
+      const message = inputField.value.trim();
+
+      if (message === "") {
+        console.warn("⚠️ Message is empty. Not sending.");
+        return;
+      }
+
+      console.log("📤 Sending message:", message);
+
+      // ✅ Emit to socket
+      socket.emit("message", {
+        username,
+        message
+      });
+
+      // ✅ Save via HTTP to PostgreSQL
+      fetch("/api/chat/message", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          user: username,
+          message: message
+        })
+      });
+
+      inputField.value = "";
+    }
+
+    // ✅ Load last 50 messages on page load
+    async function loadMessages() {
+      try {
+        const res = await fetch("/api/chat/messages");
+        const messages = await res.json();
+
+        messages.reverse().forEach((msg) => {
+          const li = document.createElement("li");
+          const time = new Date(msg.created_at).toLocaleTimeString();
+          li.innerHTML = `<strong>${escapeHtml(msg.username)}</strong> (${time}): ${escapeHtml(msg.content)}`;
+          document.getElementById("messages").appendChild(li);
         });
+      } catch (err) {
+        console.error("❌ Failed to load messages:", err);
+      }
+    }
 
-        socket.on("message", (msg) => {
-            console.log("📩 New message:", msg);
-            const li = document.createElement("li");
-            li.textContent = msg;
-            document.getElementById("messages").appendChild(li);
-        });
+    // ✅ Optional logout
+    function logout() {
+      localStorage.removeItem("username");
+      location.reload();
+    }
 
-        function sendMessage() {
-            const inputField = document.getElementById("messageInput");
-            const message = inputField.value.trim();
-
-            if (message === "") {
-                console.warn("⚠️ Message is empty. Not sending.");
-                return;
-            }
-
-            console.log("📤 Sending message:", message);
-
-            // ✅ Send via WebSocket (real-time)
-            socket.emit("message", message);
-
-            // ✅ Send via HTTP POST to save in PostgreSQL
-            fetch("/api/chat/message", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    user: socket.id,    // identify who sent the message
-                    message: message
-                })
-            })
-            .then(res => res.json())
-            .then(data => console.log("💾 Message saved:", data))
-            .catch(err => console.error("❌ Error saving message:", err));
-
-            inputField.value = "";
-        }
-
-    </script>
+    loadMessages();
+  </script>
 </body>
 </html>
+
