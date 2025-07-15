@@ -22,6 +22,20 @@
         .replace(/>/g, "&gt;");
     }
 
+
+    // ✅ Prompt user for room name and save to localStorage
+    let roomId = localStorage.getItem("roomId");
+
+    if (!roomId || roomId === "null" || roomId.trim() === "") {
+      roomId = prompt("Enter room name to join");
+      if (!roomId || roomId.trim() === "") {
+        alert("Room name is required to join chat.");
+        location.reload();
+      }
+      roomId = roomId.trim();
+      localStorage.setItem("roomId", roomId);
+    }
+
     // ✅ Step 1: Prompt and store username safely
     let username = localStorage.getItem("username");
 
@@ -58,6 +72,9 @@
 
     socket.on("connect", () => {
       console.log("🟢 Connected to server as", username);
+      
+      // ✅ Join the selected room after connecting
+      socket.emit("join", roomId);
     });
 
     socket.on("message", (msg) => {
@@ -82,7 +99,8 @@
       // ✅ Emit to socket
       socket.emit("message", {
         username,
-        message
+        message,
+        roomId
       });
 
       inputField.value = "";

@@ -44,8 +44,14 @@ app.get("/", (req, res) => {
 io.on("connection", (socket) => {
     console.log("A user connected:", socket.id);
 
+    socket.on("join", (roomId) => {
+        socket.join(roomId);
+        console.log(`🛏️ Socket ${socket.id} joined room: ${roomId}`);
+    });
+
+
     socket.on("message", async (data) => {
-        const { username, message } = data;
+        const { username, message, roomId } = data;
     
         try {
             const userResult = await pg.query(
@@ -64,11 +70,14 @@ io.on("connection", (socket) => {
             [userId, message]
             );
 
-            io.emit("message", {
+            io.to(data.roomId).emit("message", {
             username,
             message: savedMessage.rows[0].content,
             created_at: savedMessage.rows[0].created_at
             });
+
+
+
 
         } catch (err) {
             console.error("❌ Error saving message from socket:", err);
