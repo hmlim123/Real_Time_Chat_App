@@ -37,22 +37,29 @@ router.post('/message', async (req, res) => {
     }
 });
 
-router.get('/messages', async (req, res) => {
+// If you don’t already have this:
+router.get("/rooms/:roomId/messages", async (req, res) => {
+    const { roomId } = req.params;
+
     try {
-        // ✅ [UPDATED] Join users table to retrieve username per message
-        const result = await pg.query(`
-            SELECT m.id, u.username, m.content, m.created_at
-            FROM messages m
-            JOIN users u ON m.user_id = u.id
-            ORDER BY m.created_at DESC
-            LIMIT 50
-        `);
-        res.json(result.rows);
+        const result = await pg.query(
+        `SELECT m.content, m.created_at, u.username
+        FROM messages m
+        JOIN users u ON m.user_id = u.id
+        JOIN rooms r ON m.room_id = r.id
+        WHERE r.name = $1
+        ORDER BY m.created_at DESC
+        LIMIT 50`,
+        [roomId]
+        );
+
+        res.json(result.rows.reverse());
     } catch (err) {
-        console.error('❌ PostgreSQL error:', err);
-        res.status(500).json({ error: 'Database error' });
+        console.error("❌ Failed to fetch room messages:", err);
+        res.status(500).json({ error: "Failed to load messages" });
     }
 });
+
 
 module.exports = router;
 

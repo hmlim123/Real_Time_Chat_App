@@ -109,7 +109,7 @@
     // ✅ Load last 50 messages on page load
     async function loadMessages() {
       try {
-        const res = await fetch("/api/chat/messages");
+        const res = await fetch(`/api/chat/rooms/${roomId}/messages`);
         const messages = await res.json();
 
         messages.reverse().forEach((msg) => {
@@ -122,6 +122,7 @@
         console.error("❌ Failed to load messages:", err);
       }
     }
+
 
     // ✅ Optional logout
     function logout() {

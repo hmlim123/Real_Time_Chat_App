@@ -65,10 +65,21 @@ io.on("connection", (socket) => {
                 return;
             }
     
-            const savedMessage = await pg.query(
-            "INSERT INTO messages (user_id, content) VALUES ($1, $2) RETURNING content, created_at",
-            [userId, message]
+            // Check if room exists; if not, create it
+            const roomResult = await pg.query(
+            "INSERT INTO rooms (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id",
+            [data.roomId]
             );
+            const roomId = roomResult.rows[0].id;
+
+            // Save the message with room_id
+            const savedMessage = await pg.query(
+            `INSERT INTO messages (user_id, content, room_id)
+            VALUES ($1, $2, $3)
+            RETURNING content, created_at`,
+            [userId, message, roomId]
+            );
+
 
             io.to(data.roomId).emit("message", {
             username,
