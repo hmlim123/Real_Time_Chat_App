@@ -49,6 +49,11 @@ io.on("connection", (socket) => {
         console.log(`🛏️ Socket ${socket.id} joined room: ${roomId}`);
     });
 
+    socket.on("leave", (roomId) => {
+        socket.leave(roomId);
+        console.log(`🚪 Socket ${socket.id} left room: ${roomId}`);
+    });
+
 
     socket.on("message", async (data) => {
         const { username, message, roomId } = data;

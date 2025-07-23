@@ -8,9 +8,15 @@
 </head>
 <body>
   <h1>Real-Time Chat</h1>
+  <p id="currentRoom">Room: <span id="roomNameDisplay"></span></p>
+  <div>
+  <input id="roomInput" placeholder="Enter room to join" />
+  <button onclick="switchRoom()">Switch Room</button>
+  </div>
   <input id="messageInput" placeholder="Type a message..." />
   <button onclick="sendMessage()">Send</button>
   <button onclick="logout()">Logout</button>
+
   <ul id="messages"></ul>
 
   <script>
@@ -34,6 +40,7 @@
       }
       roomId = roomId.trim();
       localStorage.setItem("roomId", roomId);
+      document.getElementById("roomNameDisplay").textContent = roomId;
     }
 
     // ✅ Step 1: Prompt and store username safely
@@ -120,6 +127,36 @@
         });
       } catch (err) {
         console.error("❌ Failed to load messages:", err);
+      }
+    }
+
+    async function switchRoom() {
+      const newRoomId = document.getElementById("roomInput").value.trim();
+      if (!newRoomId || newRoomId === roomId) return;
+
+      // Leave old room
+      socket.emit("leave", roomId);
+
+      // Join new room
+      socket.emit("join", newRoomId);
+      roomId = newRoomId;
+      localStorage.setItem("roomId", roomId);
+      document.getElementById("roomNameDisplay").textContent = roomId;
+      // Clear old messages
+      document.getElementById("messages").innerHTML = "";
+
+      // Load new room's messages
+      try {
+        const res = await fetch(`/api/chat/rooms/${roomId}/messages`);
+        const messages = await res.json();
+        messages.reverse().forEach((msg) => {
+          const li = document.createElement("li");
+          const time = new Date(msg.created_at).toLocaleTimeString();
+          li.innerHTML = `<strong>${escapeHtml(msg.username)}</strong> (${time}): ${escapeHtml(msg.content)}`;
+          document.getElementById("messages").appendChild(li);
+        });
+      } catch (err) {
+        console.error("❌ Failed to load new room messages:", err);
       }
     }
 
