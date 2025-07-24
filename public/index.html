@@ -40,8 +40,9 @@
       }
       roomId = roomId.trim();
       localStorage.setItem("roomId", roomId);
-      document.getElementById("roomNameDisplay").textContent = roomId;
     }
+
+    document.getElementById("roomNameDisplay").textContent = roomId;
 
     // ✅ Step 1: Prompt and store username safely
     let username = localStorage.getItem("username");
