@@ -5,14 +5,19 @@ const db = require('./pgClient');
 const saltRounds = 10;
 const secret = process.env.JWT_SECRET;
 
-exports.createUser = async (email, password) => {
+exports.createUser = async (username, email, password) => {
   const password_hash = await bcrypt.hash(password, saltRounds);
+
   const result = await db.query(
-    'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id',
-    [email, password_hash]
+    'INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email, created_at',
+    [username, email, password_hash]
   );
-  return result.rows[0];
+
+  const token = jwt.sign({ id: result.rows[0].id }, secret, { expiresIn: '1d' });
+
+  return { ...result.rows[0], token };
 };
+
 
 exports.loginUser = async (email, password) => {
   const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);

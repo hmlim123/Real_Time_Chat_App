@@ -1,28 +1,53 @@
-// routes/user.js
 const express = require("express");
-const pg = require("../services/pgClient");
 const router = express.Router();
+const userService = require("../services/userService");
 
-router.post("/register", async (req, res) => {
-    const { username } = req.body;
+router.post('/register', async (req, res) => {
+  const { username, email, password } = req.body;
 
-    if (!username) {
-        return res.status(400).json({ error: "Username required" });
+  // Basic validation
+  if (!username || !email || !password) {
+    return res.status(400).json({ error: 'Username, email, and password required' });
+  }
+
+  try {
+    // Call your service to create user + token
+    const user = await userService.createUser(username, email, password);
+
+    // userService.createUser returns { id, username, email, created_at, token }
+    res.status(201).json({ user });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Email or username already in use' });
     }
-
-    try {
-        const result = await pg.query(
-            "INSERT INTO users (username) VALUES ($1) RETURNING *",
-            [username]
-        );
-        res.json({ user: result.rows[0] });
-    } catch (err) {
-        if (err.code === "23505") { // unique violation
-            return res.status(409).json({ error: "Username already taken" });
-        }
-        console.error(err);
-        res.status(500).json({ error: "Server error" });
-    }
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
+
+
+// LOGIN route
+router.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password required' });
+  }
+
+  try {
+    const token = await userService.loginUser(email, password);
+
+    if (!token) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // return token separately; or you can return user info too
+    res.json({ token });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 
 module.exports = router;
