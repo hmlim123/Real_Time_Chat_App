@@ -7,119 +7,115 @@
   <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
 </head>
 <body>
-  <h1>Real-Time Chat</h1>
-  <p id="currentRoom">Room: <span id="roomNameDisplay"></span></p>
-  <div>
-  <input id="roomInput" placeholder="Enter room to join" />
-  <button onclick="switchRoom()">Switch Room</button>
-  </div>
-  <input id="messageInput" placeholder="Type a message..." />
-  <button onclick="sendMessage()">Send</button>
-  <button onclick="logout()">Logout</button>
 
-  <ul id="messages"></ul>
+  <!-- Registration form container -->
+  <div id="registerContainer">
+    <h2>Register</h2>
+    <input id="regUsername" placeholder="Username" />
+    <input id="regEmail" placeholder="Email" />
+    <input id="regPassword" type="password" placeholder="Password" />
+    <button onclick="register()">Register</button>
+  </div>
+
+  <!-- Chat UI container (initially hidden) -->
+  <div id="chatContainer" style="display: none;">
+    <h1>Real-Time Chat</h1>
+    <p id="currentRoom">Room: <span id="roomNameDisplay"></span></p>
+    <div>
+      <input id="roomInput" placeholder="Enter room to join" />
+      <button onclick="switchRoom()">Switch Room</button>
+    </div>
+    <input id="messageInput" placeholder="Type a message..." />
+    <button onclick="sendMessage()">Send</button>
+    <button onclick="logout()">Logout</button>
+    <ul id="messages"></ul>
+  </div>
 
   <script>
-    // ✅ Escape user-generated content to prevent XSS
-    function escapeHtml(str) {
-      return str
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-    }
+    const escapeHtml = (str) =>
+      str.replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;");
 
+    let socket;
+    let roomId;
+    let username;
 
-    // ✅ Prompt user for room name and save to localStorage
-    let roomId = localStorage.getItem("roomId");
+    async function register() {
+      const regUsername = document.getElementById("regUsername").value.trim();
+      const regEmail = document.getElementById("regEmail").value.trim();
+      const regPassword = document.getElementById("regPassword").value;
 
-    if (!roomId || roomId === "null" || roomId.trim() === "") {
-      roomId = prompt("Enter room name to join");
-      if (!roomId || roomId.trim() === "") {
-        alert("Room name is required to join chat.");
-        location.reload();
-      }
-      roomId = roomId.trim();
-      localStorage.setItem("roomId", roomId);
-    }
-
-    document.getElementById("roomNameDisplay").textContent = roomId;
-
-    // ✅ Step 1: Prompt and store username safely
-    let username = localStorage.getItem("username");
-
-    if (!username || username === "null" || username.trim() === "") {
-      username = prompt("Enter your username");
-      if (!username || username.trim() === "") {
-        alert("⚠️ Username is required to use the chat.");
-        location.reload();
-      }
-      username = username.trim();
-      localStorage.setItem("username", username);
-    }
-
-    // ✅ Step 2: Register the user BEFORE socket connects
-    fetch("http://localhost:5001/api/user/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username })
-    })
-    .then((res) => res.json())
-    .then((data) => {
-      if (data.user) {
-        console.log("✅ Registered user:", data.user);
-      } else {
-        console.warn("⚠️ Registration error:", data.error);
-      }
-    })
-    .catch((err) => {
-      console.error("❌ Registration failed:", err);
-    });
-
-    // ✅ Step 3: Connect socket AFTER username is valid
-    const socket = io("http://localhost:5001");
-
-    socket.on("connect", () => {
-      console.log("🟢 Connected to server as", username);
-      
-      // ✅ Join the selected room after connecting
-      socket.emit("join", roomId);
-    });
-
-    socket.on("message", (msg) => {
-      console.log("📩 New message:", msg);
-      const li = document.createElement("li");
-      const time = new Date(msg.created_at).toLocaleTimeString();
-      li.innerHTML = `<strong>${escapeHtml(msg.username)}</strong> (${time}): ${escapeHtml(msg.message || msg.content)}`;
-      document.getElementById("messages").appendChild(li);
-    });
-
-    function sendMessage() {
-      const inputField = document.getElementById("messageInput");
-      const message = inputField.value.trim();
-
-      if (message === "") {
-        console.warn("⚠️ Message is empty. Not sending.");
+      if (!regUsername || !regEmail || !regPassword) {
+        alert("All fields are required");
         return;
       }
 
-      console.log("📤 Sending message:", message);
+      try {
+        const res = await fetch("http://localhost:5001/api/user/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: regUsername,
+            email: regEmail,
+            password: regPassword
+          })
+        });
 
-      // ✅ Emit to socket
-      socket.emit("message", {
-        username,
-        message,
-        roomId
-      });
+        const data = await res.json();
 
-      inputField.value = "";
+        if (res.status === 201) {
+          console.log("✅ Registered:", data.user);
+          localStorage.setItem("token", data.user.token);
+          localStorage.setItem("username", data.user.username);
+
+          roomId = prompt("Enter room name to join");
+          if (!roomId || roomId.trim() === "") {
+            alert("Room name is required");
+            location.reload();
+          }
+          roomId = roomId.trim();
+          localStorage.setItem("roomId", roomId);
+
+          username = data.user.username;
+          showChatUI();
+          initSocket();
+        } else {
+          alert(`Registration failed: ${data.error}`);
+        }
+      } catch (err) {
+        console.error("❌ Registration error:", err);
+        alert("Server error during registration");
+      }
     }
 
-    // ✅ Load last 50 messages on page load
+    function showChatUI() {
+      document.getElementById("registerContainer").style.display = "none";
+      document.getElementById("chatContainer").style.display = "block";
+      document.getElementById("roomNameDisplay").textContent = roomId;
+      loadMessages();
+    }
+
+    function initSocket() {
+      socket = io("http://localhost:5001");
+
+      socket.on("connect", () => {
+        console.log("🟢 Connected as", username);
+        socket.emit("join", roomId);
+      });
+
+      socket.on("message", (msg) => {
+        const li = document.createElement("li");
+        const time = new Date(msg.created_at).toLocaleTimeString();
+        li.innerHTML = `<strong>${escapeHtml(msg.username)}</strong> (${time}): ${escapeHtml(msg.message || msg.content)}`;
+        document.getElementById("messages").appendChild(li);
+      });
+    }
+
     async function loadMessages() {
       try {
         const res = await fetch(`/api/chat/rooms/${roomId}/messages`);
         const messages = await res.json();
-
         messages.reverse().forEach((msg) => {
           const li = document.createElement("li");
           const time = new Date(msg.created_at).toLocaleTimeString();
@@ -131,45 +127,52 @@
       }
     }
 
-    async function switchRoom() {
-      const newRoomId = document.getElementById("roomInput").value.trim();
-      if (!newRoomId || newRoomId === roomId) return;
+    function sendMessage() {
+      const input = document.getElementById("messageInput");
+      const msg = input.value.trim();
+      if (!msg) return;
 
-      // Leave old room
-      socket.emit("leave", roomId);
+      socket.emit("message", {
+        username,
+        message: msg,
+        roomId
+      });
 
-      // Join new room
-      socket.emit("join", newRoomId);
-      roomId = newRoomId;
-      localStorage.setItem("roomId", roomId);
-      document.getElementById("roomNameDisplay").textContent = roomId;
-      // Clear old messages
-      document.getElementById("messages").innerHTML = "";
-
-      // Load new room's messages
-      try {
-        const res = await fetch(`/api/chat/rooms/${roomId}/messages`);
-        const messages = await res.json();
-        messages.reverse().forEach((msg) => {
-          const li = document.createElement("li");
-          const time = new Date(msg.created_at).toLocaleTimeString();
-          li.innerHTML = `<strong>${escapeHtml(msg.username)}</strong> (${time}): ${escapeHtml(msg.content)}`;
-          document.getElementById("messages").appendChild(li);
-        });
-      } catch (err) {
-        console.error("❌ Failed to load new room messages:", err);
-      }
+      input.value = "";
     }
 
+    async function switchRoom() {
+      const newRoom = document.getElementById("roomInput").value.trim();
+      if (!newRoom || newRoom === roomId) return;
 
-    // ✅ Optional logout
+      socket.emit("leave", roomId);
+      socket.emit("join", newRoom);
+      roomId = newRoom;
+      localStorage.setItem("roomId", roomId);
+      document.getElementById("roomNameDisplay").textContent = roomId;
+
+      document.getElementById("messages").innerHTML = "";
+      await loadMessages();
+    }
+
     function logout() {
-      localStorage.removeItem("username");
+      localStorage.clear();
       location.reload();
     }
 
-    loadMessages();
+    // Auto-login if already registered before
+    window.addEventListener("DOMContentLoaded", () => {
+      const token = localStorage.getItem("token");
+      username = localStorage.getItem("username");
+      roomId = localStorage.getItem("roomId");
+
+      if (token && username && roomId) {
+        showChatUI();
+        initSocket();
+      }
+    });
   </script>
 </body>
 </html>
+
 
