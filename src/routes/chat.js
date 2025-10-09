@@ -1,5 +1,6 @@
 const express = require('express');
 const pg = require('../services/pgClient'); // ✅ use PostgreSQL client
+const authMiddleware = require('../middleware/authMiddleware'); // ✅ import authMiddleware
 const router = express.Router();
 
 router.post('/message', async (req, res) => {
@@ -37,8 +38,7 @@ router.post('/message', async (req, res) => {
     }
 });
 
-// If you don’t already have this:
-router.get("/rooms/:roomId/messages", async (req, res) => {
+router.get("/rooms/:roomId/messages", authMiddleware, async (req, res) => {
     const { roomId } = req.params;
 
     try {

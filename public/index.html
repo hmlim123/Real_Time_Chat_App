@@ -114,7 +114,11 @@
 
     async function loadMessages() {
       try {
-        const res = await fetch(`/api/chat/rooms/${roomId}/messages`);
+        const token = localStorage.getItem("token");
+        const res = await fetch(`/api/chat/rooms/${roomId}/messages`, {headers: {
+        "Authorization": `Bearer ${token}`
+      }
+      });
         const messages = await res.json();
         messages.reverse().forEach((msg) => {
           const li = document.createElement("li");
