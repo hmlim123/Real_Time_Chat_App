@@ -28,5 +28,11 @@ exports.loginUser = async (email, password) => {
   if (!isValid) return null;
 
   const token = jwt.sign({ id: user.id }, secret, { expiresIn: '1d' });
-  return token;
+  
+  return {
+  id: user.id,
+  username: user.username,
+  email: user.email,
+  token,
+  };
 };

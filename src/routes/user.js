@@ -35,16 +35,15 @@ router.post('/login', async (req, res) => {
   }
 
   try {
-    const token = await userService.loginUser(email, password);
+    const user = await userService.loginUser(email, password);
 
-    if (!token) {
+    if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // return token separately; or you can return user info too
-    res.json({ token });
+    res.json({ user });
   } catch (err) {
-    console.error(err);
+    console.error("❌ Login error:", err);
     res.status(500).json({ error: 'Server error' });
   }
 });
