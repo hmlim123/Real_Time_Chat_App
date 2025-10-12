@@ -13,10 +13,11 @@ const pg = require("./services/pgClient"); // ✅ PostgreSQL Pool
 app.use(express.json());
 
 app.use(cors({
-    origin: ["http://localhost:5001", "http://0.0.0.0:5001"],
-    methods: ["GET", "POST"],
-    credentials: false,
-  }));
+  origin: ["http://localhost:3000"],
+  methods: ["GET", "POST"],
+  credentials: true, // optional, if using cookies later
+}));
+
 
 // ✅ Register chat routes
 const chatRoutes = require('./routes/chat');
