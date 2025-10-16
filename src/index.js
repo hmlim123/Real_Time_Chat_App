@@ -44,16 +44,31 @@ app.get("/", (req, res) => {
 
 io.on("connection", (socket) => {
     console.log("A user connected:", socket.id);
-
+    
     socket.on("join", (roomId) => {
         socket.join(roomId);
         console.log(`🛏️ Socket ${socket.id} joined room: ${roomId}`);
+
+        // 🆕 Broadcast a system message to everyone in the room
+        io.to(roomId).emit("system_message", {
+            type: "join",
+            message: `User ${socket.id} joined the room`,
+            timestamp: new Date().toISOString(),
+        });
     });
 
     socket.on("leave", (roomId) => {
         socket.leave(roomId);
         console.log(`🚪 Socket ${socket.id} left room: ${roomId}`);
+
+        // 🆕 Broadcast a system message to everyone in the room
+        io.to(roomId).emit("system_message", {
+            type: "leave",
+            message: `User ${socket.id} left the room`,
+            timestamp: new Date().toISOString(),
+        });
     });
+
 
 
     socket.on("message", async (data) => {
