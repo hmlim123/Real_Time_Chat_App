@@ -8,6 +8,7 @@ export default function ChatPage() {
   const [username, setUsername] = useState("");
   const [roomId, setRoomId] = useState("");
   const [messages, setMessages] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<string[]>([]); // 🆕 for sidebar list
   const [input, setInput] = useState("");
   const [joined, setJoined] = useState(false);
 
@@ -30,7 +31,7 @@ export default function ChatPage() {
     })();
   }, [joined, roomId]);
 
-  // 🧩 Listen for incoming socket messages
+  // 🧩 Listen for incoming socket messages and system messages
   useEffect(() => {
     if (!socket) return;
 
@@ -38,8 +39,17 @@ export default function ChatPage() {
       setMessages((prev) => [...prev, msg]);
     });
 
+    // 🆕 Step 2: handle system_message events (join/leave announcements)
+    socket.on("system_message", (msg) => {
+      setMessages((prev) => [
+        ...prev,
+        { system: true, content: msg.message, timestamp: msg.timestamp },
+      ]);
+    });
+
     return () => {
       socket.off("message");
+      socket.off("system_message");
     };
   }, [socket]);
 
@@ -48,7 +58,6 @@ export default function ChatPage() {
     const email = `${username}@test.com`;
     const password = "test1234";
 
-    // Try to log in first
     let res = await fetch("http://localhost:5001/api/user/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -57,7 +66,6 @@ export default function ChatPage() {
 
     let data = await res.json();
 
-    // If login failed, register
     if (!res.ok) {
       console.log("🔁 User not found, registering instead...");
       res = await fetch("http://localhost:5001/api/user/register", {
@@ -76,11 +84,9 @@ export default function ChatPage() {
     const token = data.user.token;
     const user = data.user;
 
-    // Store info locally
     localStorage.setItem("token", token);
     localStorage.setItem("username", user.username);
 
-    // 🧠 Create authenticated socket connection
     const newSocket = io("http://localhost:5001", {
       auth: { token },
     });
@@ -99,17 +105,30 @@ export default function ChatPage() {
     setSocket(newSocket);
   };
 
+  // 🆕 Step 3 (Optional): Fetch list of rooms for sidebar
+  useEffect(() => {
+    if (!joined) return;
+    const token = localStorage.getItem("token");
+    fetch("http://localhost:5001/api/chat/rooms", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => setRooms(data.map((r: any) => r.name)))
+      .catch((err) => console.error("❌ Failed to fetch rooms:", err));
+  }, [joined]);
+
   // 📨 Send a message
   const sendMessage = () => {
     if (!socket || !input.trim()) return;
     socket.emit("message", {
       roomId,
       message: input,
+      username,
     });
     setInput("");
   };
 
-  // 🚪 Log out (optional for testing)
+  // 🚪 Log out
   const handleLogout = () => {
     localStorage.clear();
     setJoined(false);
@@ -145,44 +164,80 @@ export default function ChatPage() {
     );
   }
 
-  // 💬 Chat UI
+  // 💬 Chat UI with sidebar (Step 3)
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen p-4">
-      <div className="flex justify-between w-full max-w-md mb-4">
-        <h1 className="text-2xl font-bold text-blue-600">Room: {roomId}</h1>
-        <button
-          onClick={handleLogout}
-          className="text-sm text-gray-600 hover:text-gray-800 underline"
-        >
-          Log Out
-        </button>
-      </div>
-
-      <div className="w-full max-w-md border rounded-md p-4 mb-4 h-64 overflow-y-auto">
-        {messages.map((msg, i) => (
-          <p key={i}>
-            <strong>{msg.username || "Anonymous"}:</strong> {msg.content || msg.message}
-          </p>
+    <main className="flex min-h-screen p-4">
+      {/* 🆕 Sidebar */}
+      <aside className="w-1/4 border-r pr-4">
+        <h2 className="font-bold mb-2">Rooms</h2>
+        {rooms.map((r) => (
+          <div
+            key={r}
+            onClick={() => {
+              if (socket) {
+                socket.emit("leave", roomId);
+                socket.emit("join", r);
+              }
+              setRoomId(r);
+            }}
+            className={`cursor-pointer p-2 rounded ${
+              r === roomId ? "bg-blue-100" : "hover:bg-gray-100"
+            }`}
+          >
+            {r}
+          </div>
         ))}
-      </div>
+      </aside>
 
-      <div className="flex w-full max-w-md">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Type a message..."
-          className="flex-1 border p-2 rounded-l-md"
-        />
-        <button
-          onClick={sendMessage}
-          className="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600"
-        >
-          Send
-        </button>
-      </div>
+      {/* 🧩 Chat Area */}
+      <section className="flex-1 flex flex-col items-center justify-center">
+        <div className="flex justify-between w-full max-w-md mb-4">
+          <h1 className="text-2xl font-bold text-blue-600">Room: {roomId}</h1>
+          <button
+            onClick={handleLogout}
+            className="text-sm text-gray-600 hover:text-gray-800 underline"
+          >
+            Log Out
+          </button>
+        </div>
+
+        <div className="w-full max-w-md border rounded-md p-4 mb-4 h-64 overflow-y-auto">
+          {messages.map((msg, i) => (
+            <p
+              key={i}
+              className={msg.system ? "text-gray-500 italic" : ""}
+            >
+              {msg.system
+                ? msg.content
+                : (
+                    <>
+                      <strong>{msg.username || "Anonymous"}:</strong>{" "}
+                      {msg.content || msg.message}
+                    </>
+                  )}
+            </p>
+          ))}
+        </div>
+
+        <div className="flex w-full max-w-md">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Type a message..."
+            className="flex-1 border p-2 rounded-l-md"
+          />
+          <button
+            onClick={sendMessage}
+            className="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600"
+          >
+            Send
+          </button>
+        </div>
+      </section>
     </main>
   );
 }
+
 
 
 
