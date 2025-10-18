@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { io, Socket } from "socket.io-client";
+import { useRef } from "react";
+
 
 export default function ChatPage() {
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -11,6 +13,8 @@ export default function ChatPage() {
   const [rooms, setRooms] = useState<string[]>([]); // 🆕 for sidebar list
   const [input, setInput] = useState("");
   const [joined, setJoined] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
 
   // 🧠 Fetch message history whenever user joins a room
   useEffect(() => {
@@ -52,6 +56,13 @@ export default function ChatPage() {
       socket.off("system_message");
     };
   }, [socket]);
+
+useEffect(() => {
+  if (messagesEndRef.current) {
+    messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+  }
+}, [messages]);
+
 
   // 🟢 Login or register automatically
   const handleJoin = async () => {
@@ -202,21 +213,33 @@ export default function ChatPage() {
         </div>
 
         <div className="w-full max-w-md border rounded-md p-4 mb-4 h-64 overflow-y-auto">
-          {messages.map((msg, i) => (
-            <p
-              key={i}
-              className={msg.system ? "text-gray-500 italic" : ""}
-            >
-              {msg.system
-                ? msg.content
-                : (
-                    <>
-                      <strong>{msg.username || "Anonymous"}:</strong>{" "}
-                      {msg.content || msg.message}
-                    </>
-                  )}
-            </p>
-          ))}
+        {messages.map((msg, i) => (
+          <p
+            key={i}
+            className={`text-sm ${msg.system ? "text-gray-500 italic" : "text-black"}`}
+          >
+            {msg.system ? (
+              <>
+                🕓 <span className="text-gray-400">
+                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>{" "}
+                — {msg.content}
+              </>
+            ) : (
+              <>
+                <strong>{msg.username || "Anonymous"}:</strong>{" "}
+                {msg.content || msg.message}{" "}
+                <span className="text-xs text-gray-400">
+                  ({new Date(msg.created_at || msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+                </span>
+              </>
+            )}
+          </p>
+        ))}
+
+        {/* 🧩 Auto-scroll anchor */}
+        <div ref={messagesEndRef} />
+
         </div>
 
         <div className="flex w-full max-w-md">

@@ -3,6 +3,17 @@ const pg = require('../services/pgClient'); // ✅ use PostgreSQL client
 const authMiddleware = require('../middleware/authMiddleware'); // ✅ import authMiddleware
 const router = express.Router();
 
+// ✅ NEW: Fetch list of all rooms (for sidebar)
+router.get("/rooms", authMiddleware, async (req, res) => {
+  try {
+    const result = await pg.query("SELECT id, name FROM rooms ORDER BY id ASC");
+    res.json(result.rows);
+  } catch (err) {
+    console.error("❌ Failed to fetch rooms:", err);
+    res.status(500).json({ error: "Failed to fetch rooms" });
+  }
+});
+
 router.post('/message', async (req, res) => {
     const { user, message } = req.body;
 

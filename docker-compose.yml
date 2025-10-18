@@ -36,6 +36,8 @@ services:
       - PG_DATABASE=chatdb
       - PG_HOST=postgres
       - PG_PORT=5432
+      - JWT_SECRET=my_super_secret_key    # 👈 Added line
+      - NODE_ENV=development              # 👈 Optional but good to have
 
 volumes:
   pgdata:
