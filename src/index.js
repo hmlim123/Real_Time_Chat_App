@@ -89,16 +89,15 @@ io.on("connection", (socket) => {
             // Check if room exists; if not, create it
             const roomResult = await pg.query(
             "INSERT INTO rooms (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id",
-            [data.roomId]
+            [roomId]
             );
-            const roomId = roomResult.rows[0].id;
+            const dbRoomId = roomResult.rows[0].id;
 
-            // Save the message with room_id
             const savedMessage = await pg.query(
             `INSERT INTO messages (user_id, content, room_id)
             VALUES ($1, $2, $3)
             RETURNING content, created_at`,
-            [userId, message, roomId]
+            [userId, message, dbRoomId]
             );
 
 
@@ -114,6 +113,11 @@ io.on("connection", (socket) => {
         } catch (err) {
             console.error("❌ Error saving message from socket:", err);
         }
+    });
+
+    // 🆕 Typing indicator
+    socket.on("typing", ({ roomId, username }) => {
+        socket.to(roomId).emit("user_typing", { username });
     });
 
     socket.on("disconnect", () => {

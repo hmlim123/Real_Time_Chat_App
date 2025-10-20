@@ -14,6 +14,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [joined, setJoined] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const [typingUser, setTypingUser] = useState<string | null>(null);
 
 
   // 🧠 Fetch message history whenever user joins a room
@@ -36,26 +37,31 @@ export default function ChatPage() {
   }, [joined, roomId]);
 
   // 🧩 Listen for incoming socket messages and system messages
-  useEffect(() => {
-    if (!socket) return;
+useEffect(() => {
+  if (!socket) return;
 
-    socket.on("message", (msg) => {
-      setMessages((prev) => [...prev, msg]);
-    });
+  socket.on("message", (msg) => setMessages((prev) => [...prev, msg]));
 
-    // 🆕 Step 2: handle system_message events (join/leave announcements)
-    socket.on("system_message", (msg) => {
-      setMessages((prev) => [
-        ...prev,
-        { system: true, content: msg.message, timestamp: msg.timestamp },
-      ]);
-    });
+  socket.on("system_message", (msg) => {
+    setMessages((prev) => [
+      ...prev,
+      { system: true, content: msg.message, timestamp: msg.timestamp },
+    ]);
+  });
 
-    return () => {
-      socket.off("message");
-      socket.off("system_message");
-    };
-  }, [socket]);
+  // 🆕 Typing indicator listener
+  socket.on("user_typing", ({ username }) => {
+    setTypingUser(username);
+    setTimeout(() => setTypingUser(null), 2000); // clears after 2s
+  });
+
+  return () => {
+    socket.off("message");
+    socket.off("system_message");
+    socket.off("user_typing");
+  };
+}, [socket]);
+
 
 useEffect(() => {
   if (messagesEndRef.current) {
@@ -242,13 +248,25 @@ useEffect(() => {
 
         </div>
 
+        {typingUser && (
+          <p className="text-sm italic text-gray-500 mb-2">
+            {typingUser} is typing...
+          </p>
+        )}
+
         <div className="flex w-full max-w-md">
           <input
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value);
+              if (socket && roomId && username) {
+                socket.emit("typing", { roomId, username });
+              }
+            }}
             placeholder="Type a message..."
             className="flex-1 border p-2 rounded-l-md"
           />
+
           <button
             onClick={sendMessage}
             className="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600"
