@@ -15,17 +15,10 @@ logs/
 *.log
 
 # ======================
-# Next.js Frontend
+# Claude Code
 # ======================
-# Build output
-.next/
-out/
-# Dependency folders
-real_time_chat_front/node_modules/
-# Environment files
-real_time_chat_front/.env
-real_time_chat_front/.env.local
-real_time_chat_front/.env.*.local
+CLAUDE.md
+src/CLAUDE.md
 
 # ======================
 # OS / IDE files

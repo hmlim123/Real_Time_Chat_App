@@ -125,9 +125,20 @@ io.on("connection", (socket) => {
     });
 });
 
-server.listen(port, "0.0.0.0", () => {
-    console.log(`Server running at http://0.0.0.0:${port}`);
-});
+function startServer() {
+    server.listen(port, "0.0.0.0", () => {
+        console.log(`Server running at http://0.0.0.0:${port}`);
+    });
+    return server;
+}
 
-module.exports = { app, server };
+function stopServer() {
+    server.close();
+}
+
+if (require.main === module) {
+    startServer();
+}
+
+module.exports = { app, server, startServer, stopServer };
 
