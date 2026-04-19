@@ -19,8 +19,8 @@ exports.createUser = async (username, email, password) => {
 };
 
 
-exports.loginUser = async (email, password) => {
-  const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+exports.loginUser = async (username, password) => {
+  const result = await db.query('SELECT * FROM users WHERE username = $1', [username]);
   const user = result.rows[0];
   if (!user) return null;
 
@@ -28,11 +28,11 @@ exports.loginUser = async (email, password) => {
   if (!isValid) return null;
 
   const token = jwt.sign({ id: user.id }, secret, { expiresIn: '1d' });
-  
+
   return {
-  id: user.id,
-  username: user.username,
-  email: user.email,
-  token,
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    token,
   };
 };

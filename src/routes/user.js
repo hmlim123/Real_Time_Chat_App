@@ -28,14 +28,14 @@ router.post('/register', async (req, res) => {
 
 // LOGIN route
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+  const { username, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password required' });
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password required' });
   }
 
   try {
-    const user = await userService.loginUser(email, password);
+    const user = await userService.loginUser(username, password);
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
