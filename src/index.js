@@ -4,7 +4,8 @@ const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
 const cors = require('cors');
-const port = process.env.PORT || 5001;
+const jwt = require("jsonwebtoken");
+const port = process.env.PORT || 5002;
 const app = express();
 const server = http.createServer(app);
 const pg = require("./services/pgClient"); // ✅ PostgreSQL Pool
@@ -30,8 +31,22 @@ app.use("/api/user", userRoutes);
 
 const io = new Server(server, {
     cors: {
-        origin: "*",
+        origin: "http://localhost:3000",
         methods: ["GET", "POST"]
+    }
+});
+
+io.use(async (socket, next) => {
+    const token = socket.handshake.auth?.token;
+    if (!token) return next(new Error("Authentication required"));
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const result = await pg.query("SELECT id, username FROM users WHERE id = $1", [decoded.id]);
+        if (!result.rows[0]) return next(new Error("User not found"));
+        socket.user = result.rows[0];
+        next();
+    } catch {
+        next(new Error("Invalid token"));
     }
 });
 
@@ -50,10 +65,9 @@ io.on("connection", (socket) => {
         socket.join(roomId);
         console.log(`🛏️ Socket ${socket.id} joined room: ${roomId}`);
 
-        // 🆕 Broadcast a system message to everyone in the room
         io.to(roomId).emit("system_message", {
             type: "join",
-            message: `User ${socket.id} joined the room`,
+            message: `${socket.user.username} joined the room`,
             timestamp: new Date().toISOString(),
         });
     });
@@ -62,10 +76,9 @@ io.on("connection", (socket) => {
         socket.leave(roomId);
         console.log(`🚪 Socket ${socket.id} left room: ${roomId}`);
 
-        // 🆕 Broadcast a system message to everyone in the room
         io.to(roomId).emit("system_message", {
             type: "leave",
-            message: `User ${socket.id} left the room`,
+            message: `${socket.user.username} left the room`,
             timestamp: new Date().toISOString(),
         });
     });
@@ -73,52 +86,35 @@ io.on("connection", (socket) => {
 
 
     socket.on("message", async (data) => {
-        const { username, message, roomId } = data;
-    
+        const { message, roomId } = data;
+        const { id: userId, username } = socket.user;
+
         try {
-            const userResult = await pg.query(
-                "SELECT id FROM users WHERE username = $1",
-                [username]
-            );
-    
-            const userId = userResult.rows[0]?.id;
-            if (!userId) {
-                console.warn("Unknown username:", username);
-                return;
-            }
-    
-            // Check if room exists; if not, create it
             const roomResult = await pg.query(
-            "INSERT INTO rooms (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id",
-            [roomId]
+                "INSERT INTO rooms (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id",
+                [roomId]
             );
             const dbRoomId = roomResult.rows[0].id;
 
             const savedMessage = await pg.query(
-            `INSERT INTO messages (user_id, content, room_id)
-            VALUES ($1, $2, $3)
-            RETURNING content, created_at`,
-            [userId, message, dbRoomId]
+                `INSERT INTO messages (user_id, content, room_id)
+                VALUES ($1, $2, $3)
+                RETURNING content, created_at`,
+                [userId, message, dbRoomId]
             );
 
-
-            io.to(data.roomId).emit("message", {
-            username,
-            message: savedMessage.rows[0].content,
-            created_at: savedMessage.rows[0].created_at
+            io.to(roomId).emit("message", {
+                username,
+                message: savedMessage.rows[0].content,
+                created_at: savedMessage.rows[0].created_at
             });
-
-
-
-
         } catch (err) {
             console.error("❌ Error saving message from socket:", err);
         }
     });
 
-    // 🆕 Typing indicator
-    socket.on("typing", ({ roomId, username }) => {
-        socket.to(roomId).emit("user_typing", { username });
+    socket.on("typing", ({ roomId }) => {
+        socket.to(roomId).emit("user_typing", { username: socket.user.username });
     });
 
     socket.on("disconnect", () => {

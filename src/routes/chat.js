@@ -14,32 +14,24 @@ router.get("/rooms", authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/message', async (req, res) => {
-    const { user, message } = req.body;
+router.post('/message', authMiddleware, async (req, res) => {
+    const { roomId, message } = req.body;
+    const userId = req.user.id;
 
-    if (!user || !message) {
-        return res.status(400).json({ error: 'User and message are required' });
+    if (!roomId || !message) {
+        return res.status(400).json({ error: 'roomId and message are required' });
     }
 
     try {
-
-        // ✅ [ADDED] Fetch user_id from the users table based on the username
-        const userResult = await pg.query(
-            'SELECT id FROM users WHERE username = $1',
-            [user]
+        const roomResult = await pg.query(
+            "INSERT INTO rooms (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id",
+            [roomId]
         );
+        const dbRoomId = roomResult.rows[0].id;
 
-        // ✅ [ADDED] Handle case where user is not found
-        if (userResult.rows.length === 0) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-
-        const userId = userResult.rows[0].id;
-
-        // ✅ [UPDATED] Store message with user_id instead of username
         await pg.query(
-            'INSERT INTO messages (user_id, content) VALUES ($1, $2)',
-            [userId, message]
+            'INSERT INTO messages (user_id, content, room_id) VALUES ($1, $2, $3)',
+            [userId, message, dbRoomId]
         );
 
         res.json({ success: true, message: 'Message stored in PostgreSQL' });
