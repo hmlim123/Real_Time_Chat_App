@@ -17,9 +17,9 @@ const redisClient = require("./services/redisClient");
 app.use(express.json());
 
 app.use(cors({
-  origin: ["http://localhost:3000"],
+  origin: ["http://localhost:3000", "https://real-time-chat-frontend-aohyiyqsx-aiden-lim-s-projects.vercel.app"],
   methods: ["GET", "POST"],
-  credentials: true, // optional, if using cookies later
+  credentials: true,
 }));
 
 
@@ -33,7 +33,7 @@ app.use("/api/user", userRoutes);
 
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:3000",
+        origin: ["http://localhost:3000", "https://real-time-chat-frontend-aohyiyqsx-aiden-lim-s-projects.vercel.app"],
         methods: ["GET", "POST"]
     }
 });
