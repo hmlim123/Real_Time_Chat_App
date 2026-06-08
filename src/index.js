@@ -2,13 +2,15 @@ require("dotenv").config();
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
+const { createAdapter } = require("@socket.io/redis-adapter");
 const path = require("path");
 const cors = require('cors');
 const jwt = require("jsonwebtoken");
 const port = process.env.PORT || 5002;
 const app = express();
 const server = http.createServer(app);
-const pg = require("./services/pgClient"); // ✅ PostgreSQL Pool
+const pg = require("./services/pgClient");
+const redisClient = require("./services/redisClient");
 
 
 // ✅ Middleware: Parse incoming JSON (needed for POST bodies)
@@ -122,15 +124,29 @@ io.on("connection", (socket) => {
     });
 });
 
+async function initRedis() {
+    try {
+        const subClient = redisClient.duplicate();
+        await Promise.all([redisClient.connect(), subClient.connect()]);
+        io.adapter(createAdapter(redisClient, subClient));
+        console.log("✅ Socket.IO Redis adapter ready");
+    } catch (err) {
+        console.warn("⚠️  Redis unavailable — running single-process:", err.message);
+    }
+}
+
 function startServer() {
-    server.listen(port, "0.0.0.0", () => {
-        console.log(`Server running at http://0.0.0.0:${port}`);
+    initRedis().then(() => {
+        server.listen(port, "0.0.0.0", () => {
+            console.log(`Server running at http://0.0.0.0:${port}`);
+        });
     });
     return server;
 }
 
-function stopServer() {
+async function stopServer() {
     server.close();
+    if (redisClient.isOpen) await redisClient.quit();
 }
 
 if (require.main === module) {

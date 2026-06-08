@@ -3,7 +3,6 @@ const pg = require('../services/pgClient'); // ✅ use PostgreSQL client
 const authMiddleware = require('../middleware/authMiddleware'); // ✅ import authMiddleware
 const router = express.Router();
 
-// ✅ NEW: Fetch list of all rooms (for sidebar)
 router.get("/rooms", authMiddleware, async (req, res) => {
   try {
     const result = await pg.query("SELECT id, name FROM rooms ORDER BY id ASC");
@@ -12,6 +11,23 @@ router.get("/rooms", authMiddleware, async (req, res) => {
     console.error("❌ Failed to fetch rooms:", err);
     res.status(500).json({ error: "Failed to fetch rooms" });
   }
+});
+
+router.post("/rooms", authMiddleware, async (req, res) => {
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+        return res.status(400).json({ error: 'Room name is required' });
+    }
+    try {
+        const result = await pg.query(
+            "INSERT INTO rooms (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id, name",
+            [name.trim()]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error('❌ Failed to create room:', err);
+        res.status(500).json({ error: 'Failed to create room' });
+    }
 });
 
 router.post('/message', authMiddleware, async (req, res) => {
