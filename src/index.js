@@ -17,7 +17,17 @@ const redisClient = require("./services/redisClient");
 app.use(express.json());
 
 app.use(cors({
-  origin: ["http://localhost:3000", "https://real-time-chat-frontend-aohyiyqsx-aiden-lim-s-projects.vercel.app", "https://34-235-135-157.sslip.io"],
+  origin: (origin, callback) => {
+    const allowed = [
+      "http://localhost:3000",
+      "https://34-235-135-157.sslip.io",
+    ];
+    if (!origin || allowed.includes(origin) || origin.endsWith(".vercel.app")) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   methods: ["GET", "POST"],
   credentials: true,
 }));
@@ -33,7 +43,14 @@ app.use("/api/user", userRoutes);
 
 const io = new Server(server, {
     cors: {
-        origin: ["http://localhost:3000", "https://real-time-chat-frontend-aohyiyqsx-aiden-lim-s-projects.vercel.app", "https://34-235-135-157.sslip.io"],
+        origin: (origin, callback) => {
+            const allowed = ["http://localhost:3000", "https://34-235-135-157.sslip.io"];
+            if (!origin || allowed.includes(origin) || origin.endsWith(".vercel.app")) {
+                callback(null, true);
+            } else {
+                callback(new Error("Not allowed by CORS"));
+            }
+        },
         methods: ["GET", "POST"]
     }
 });
