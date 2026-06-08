@@ -17,7 +17,7 @@ const redisClient = require("./services/redisClient");
 app.use(express.json());
 
 app.use(cors({
-  origin: ["http://localhost:3000", "https://real-time-chat-frontend-aohyiyqsx-aiden-lim-s-projects.vercel.app"],
+  origin: ["http://localhost:3000", "https://real-time-chat-frontend-aohyiyqsx-aiden-lim-s-projects.vercel.app", "https://34-235-135-157.sslip.io"],
   methods: ["GET", "POST"],
   credentials: true,
 }));
@@ -33,7 +33,7 @@ app.use("/api/user", userRoutes);
 
 const io = new Server(server, {
     cors: {
-        origin: ["http://localhost:3000", "https://real-time-chat-frontend-aohyiyqsx-aiden-lim-s-projects.vercel.app"],
+        origin: ["http://localhost:3000", "https://real-time-chat-frontend-aohyiyqsx-aiden-lim-s-projects.vercel.app", "https://34-235-135-157.sslip.io"],
         methods: ["GET", "POST"]
     }
 });
